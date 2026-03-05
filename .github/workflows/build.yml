@@ -1,0 +1,55 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+  repository_dispatch:
+    types: [build-apk]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+    
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+    
+    - name: Create Gradle Wrapper
+      run: |
+        gradle wrapper --gradle-version 8.0
+        chmod +x gradlew
+    
+    - name: Build with Gradle
+      run: ./gradlew assembleDebug --stacktrace --no-daemon
+    
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Test-v1.0.0
+        path: app/build/outputs/apk/debug/app-debug.apk
+        retention-days: 30
+    
+    - name: Get current date
+      id: date
+      run: echo "date=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+    
+    - name: Create Release
+      if: success()
+      uses: softprops/action-gh-release@v1
+      with:
+        files: app/build/outputs/apk/debug/app-debug.apk
+        name: Release 1.0.0 - ${{ steps.date.outputs.date }}
+        tag_name: v1.0.0-${{ steps.date.outputs.date }}
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
